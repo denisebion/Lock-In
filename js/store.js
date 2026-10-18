@@ -19,6 +19,20 @@ function save() {
   }
 }
 
+export const getPrefs = () => state.prefs || {};
+
+export function updatePrefs(fn) {
+  const prefs = structuredClone(state.prefs || {});
+  fn(prefs);
+  state.prefs = prefs;
+  save();
+}
+
+export function resetPrefs() {
+  delete state.prefs;
+  save();
+}
+
 export const getEntry = (k) => state.days[k];
 export const allDays = () => state.days;
 

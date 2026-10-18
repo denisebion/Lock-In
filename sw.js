@@ -1,8 +1,9 @@
 // Network first so updates show up right away; cache is the offline fallback.
-const CACHE = 'lockin-v1';
+const CACHE = 'lockin-v2';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/styles.css',
   'js/app.js', 'js/config.js', 'js/logic.js', 'js/store.js', 'js/today.js', 'js/dashboard.js',
+  'js/prefs.js', 'js/settings.js',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-512.png',
 ];
 
@@ -21,7 +22,8 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(e.request)
+    // no-cache revalidates with the server so new versions aren't held back by the browser cache.
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));

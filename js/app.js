@@ -1,18 +1,21 @@
 import { renderToday } from './today.js';
 import { renderDashboard } from './dashboard.js';
+import { renderSettings } from './settings.js';
 
 const main = document.getElementById('view');
 
-// Routes: #today, #today/2026-10-05, #dashboard
+// Routes: #today, #today/2026-10-05, #dashboard, #settings
 function route() {
   const [name, arg] = (location.hash.slice(1) || 'today').split('/');
   const view = document.createElement('div');
   main.replaceChildren(view);
-  if (name === 'dashboard') renderDashboard(view);
+  const tab = ['dashboard', 'settings'].includes(name) ? name : 'today';
+  if (tab === 'dashboard') renderDashboard(view);
+  else if (tab === 'settings') renderSettings(view);
   else renderToday(view, /^\d{4}-\d{2}-\d{2}$/.test(arg || '') ? arg : undefined);
 
   document.querySelectorAll('.tabbar a').forEach((a) =>
-    a.setAttribute('aria-current', a.dataset.tab === (name === 'dashboard' ? 'dashboard' : 'today') ? 'page' : 'false'));
+    a.setAttribute('aria-current', a.dataset.tab === tab ? 'page' : 'false'));
   window.scrollTo(0, 0);
 }
 

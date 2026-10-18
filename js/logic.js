@@ -1,4 +1,8 @@
-import { CHALLENGE, PAUSES, STEP_RAMP, RULES, SCHEDULE } from './config.js';
+import { CHALLENGE, PAUSES, SCHEDULE } from './config.js';
+import * as P from './prefs.js';
+
+export const esc = (s) =>
+  String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 // Dates are local-time "YYYY-MM-DD" keys throughout.
 const pad = (n) => String(n).padStart(2, '0');
@@ -29,13 +33,20 @@ export const pauseFor = (k) => PAUSES.find((p) => k >= p.start && k <= p.end);
 export const planFor = (k) => SCHEDULE[fromKey(k).getDay()];
 
 export function stepTarget(k) {
-  let target = STEP_RAMP[0].target;
-  for (const step of STEP_RAMP) if (k >= step.from) target = step.target;
+  const ramp = P.stepRamp();
+  let target = ramp[0].target;
+  for (const step of ramp) if (k >= step.from) target = step.target;
   return target;
 }
 
-export const isApplicable = (k, ruleId) => ruleId !== 'strength' || !!planFor(k).strength;
-export const applicableRules = (k) => RULES.filter((r) => isApplicable(k, r.id));
+// Strength only counts on strength days. Custom rules count on the weekdays you picked,
+// starting the day they were added so they don't break past streaks.
+export function isApplicable(k, rule) {
+  if (rule.id === 'strength') return !!planFor(k).strength;
+  if (rule.since && k < rule.since) return false;
+  return !rule.days || rule.days.includes(fromKey(k).getDay());
+}
+export const applicableRules = (k) => P.rules().filter((r) => isApplicable(k, r));
 
 export const coveredByBallers = (k, ruleId, entry) =>
   !!(planFor(k).ballersOption && entry?.ballers && (ruleId === 'move' || ruleId === 'steps'));
@@ -48,7 +59,7 @@ export function ruleMet(k, ruleId, entry) {
 export function dayStatus(k, entry) {
   const rules = applicableRules(k);
   const met = rules.filter((r) => ruleMet(k, r.id, entry)).length;
-  return { met, total: rules.length, perfect: met === rules.length };
+  return { met, total: rules.length, perfect: rules.length > 0 && met === rules.length };
 }
 
 // Challenge days from the start through today.
@@ -79,9 +90,9 @@ function streak(today, test) {
 export const perfectStats = (today, days) =>
   streak(today, (k) => (pauseFor(k) ? null : dayStatus(k, days[k]).perfect));
 
-export const ruleStats = (ruleId, today, days) =>
+export const ruleStats = (rule, today, days) =>
   streak(today, (k) =>
-    pauseFor(k) || !isApplicable(k, ruleId) ? null : ruleMet(k, ruleId, days[k]));
+    pauseFor(k) || !isApplicable(k, rule) ? null : ruleMet(k, rule.id, days[k]));
 
 export function countdown(today) {
   if (today < CHALLENGE.start) {

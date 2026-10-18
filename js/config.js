@@ -1,4 +1,4 @@
-// Your rules, schedule and targets. Edit here until the Settings screen exists.
+// Default rules, schedule and targets. The Settings screen saves overrides on top of these.
 
 export const CHALLENGE = {
   start: '2026-10-01',
@@ -29,15 +29,7 @@ export const RULES = [
   { id: 'move', name: 'Move 30+ minutes', hint: 'Gym, Ballers, or a walk all count' },
   { id: 'steps', name: 'Hit step target', hint: '' },
   { id: 'strength', name: 'Strength session', hint: 'Apartment gym, 30 min' },
-  { id: 'kali', name: '10-min calm training with Kali', hint: '' },
   { id: 'calories', name: 'Calories in range', hint: '' },
-];
-
-// Rotates by day so each session has a clear focus.
-export const KALI_DRILLS = [
-  'Mat settle: reward her for lying calmly on her mat.',
-  '"Look at me": treat every time she checks in with you.',
-  'Trigger watching: stay far enough away that she stays quiet and reward calm looks.',
 ];
 
 const strengthA = [

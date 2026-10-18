@@ -1,12 +1,12 @@
-import { CHALLENGE, CALORIES, RULES, KALI_DRILLS, SHOE_TIP, SHOE_TIP_UNTIL } from './config.js';
+import { CHALLENGE, SHOE_TIP, SHOE_TIP_UNTIL } from './config.js';
 import * as L from './logic.js';
+import * as P from './prefs.js';
 import * as S from './store.js';
 
 const fmt = (n) => n.toLocaleString('en-US');
 const longDate = (k) =>
   L.fromKey(k).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-const esc = (s) =>
-  String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const esc = L.esc;
 
 const CHECK_ICON = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 
@@ -18,15 +18,20 @@ export function renderToday(root, requestedKey) {
   const future = key > today;
   const target = L.stepTarget(key);
   const entry = S.getEntry(key) || { done: {}, lifts: {} };
-  const kaliDrill = KALI_DRILLS[(L.dayNumber(key) - 1) % KALI_DRILLS.length];
+  const cal = P.calories();
+  const exercises = plan.strength ? P.exercises(L.fromKey(key).getDay()) : [];
   const shoeTip = !pause && key <= SHOE_TIP_UNTIL ? SHOE_TIP : '';
 
-  const ruleCopy = {
+  const builtInCopy = {
     move: { name: 'Move 30+ minutes', sub: 'Gym, Ballers, or a walk all count' },
     steps: { name: `Hit ${fmt(target)} steps`, sub: shoeTip || 'Check your phone or watch', input: 'steps' },
     strength: { name: 'Strength session', sub: plan.title },
-    kali: { name: '10-min calm training with Kali', sub: kaliDrill },
-    calories: { name: `Calories ${fmt(CALORIES.min)}–${fmt(CALORIES.max)}`, sub: 'Log food, land in the range', input: 'calories' },
+    calories: { name: `Calories ${fmt(cal.min)}–${fmt(cal.max)}`, sub: 'Log food, land in the range', input: 'calories' },
+  };
+  // A name set in Settings replaces the default wording.
+  const copyFor = (r) => {
+    const copy = builtInCopy[r.id] || { name: r.name, sub: '' };
+    return r.customName ? { ...copy, name: r.name } : copy;
   };
 
   root.innerHTML = `
@@ -66,13 +71,13 @@ export function renderToday(root, requestedKey) {
             <button type="button" data-ballers="1">Ballers</button>
             <button type="button" data-ballers="0">Walk ${fmt(target)} steps</button>
           </div>` : ''}
-        ${plan.exercises ? exerciseList() : ''}
+        ${exercises.length ? exerciseList() : ''}
       </section>
 
       <section class="card">
         <h3 class="section-label">Check in</h3>
         <div class="rules">
-          ${L.applicableRules(key).map((r) => ruleRow(r.id, ruleCopy[r.id])).join('')}
+          ${L.applicableRules(key).map((r) => ruleRow(r.id, copyFor(r))).join('')}
         </div>
       </section>
 
@@ -111,7 +116,7 @@ export function renderToday(root, requestedKey) {
   function exerciseList() {
     return `
       <ol class="exercises">
-        ${plan.exercises.map((ex) => {
+        ${exercises.map((ex) => {
           const last = S.lastLift(ex.id, key);
           return `
             <li>
@@ -134,7 +139,7 @@ export function renderToday(root, requestedKey) {
         <button type="button" class="check" aria-label="${esc(copy.name)}">${CHECK_ICON}</button>
         <div class="rule-body">
           <div class="rule-name">${esc(copy.name)}</div>
-          <div class="rule-sub">${esc(copy.sub)}</div>
+          ${copy.sub ? `<div class="rule-sub">${esc(copy.sub)}</div>` : ''}
           <div class="rule-covered">Covered by Ballers</div>
         </div>
         ${copy.input ? `<input class="mini" type="text" inputmode="numeric" data-field="${copy.input}"
@@ -170,7 +175,7 @@ export function renderToday(root, requestedKey) {
     root.querySelector('.progress-text').innerHTML = st.perfect
       ? `<strong>Perfect day.</strong> ${st.met} of ${st.total} done`
       : `<strong>${st.met} of ${st.total}</strong> done${pause ? ' · optional today' : ''}`;
-    root.querySelector('.progress-fill').style.width = `${(st.met / st.total) * 100}%`;
+    root.querySelector('.progress-fill').style.width = `${st.total ? (st.met / st.total) * 100 : 0}%`;
     root.querySelector('.progress-card').classList.toggle('perfect', st.perfect);
 
     const streak = L.perfectStats(today, S.allDays());
@@ -232,7 +237,7 @@ export function renderToday(root, requestedKey) {
         e[field] = raw === '' ? null : Number(raw);
         if (raw === '') return;
         const n = Number(raw);
-        e.done[field] = field === 'steps' ? n >= target : n >= CALORIES.min && n <= CALORIES.max;
+        e.done[field] = field === 'steps' ? n >= target : n >= cal.min && n <= cal.max;
       });
     }
   });

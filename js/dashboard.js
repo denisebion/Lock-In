@@ -1,4 +1,5 @@
-import { CHALLENGE, PAUSES, RULES, STEP_RAMP } from './config.js';
+import { CHALLENGE, PAUSES } from './config.js';
+import * as P from './prefs.js';
 import * as L from './logic.js';
 import * as S from './store.js';
 
@@ -11,7 +12,8 @@ export function renderDashboard(root) {
   const days = S.allDays();
   const cd = L.countdown(today);
   const perfect = L.perfectStats(today, days);
-  const rules = RULES.map((r) => ({ ...r, ...L.ruleStats(r.id, today, days) }));
+  const rules = P.rules().map((r) => ({ ...r, ...L.ruleStats(r, today, days) }));
+  const ramp = P.stepRamp();
   const target = L.stepTarget(L.clampToChallenge(today));
   const logged = Object.keys(days).filter((k) => k >= CHALLENGE.start && k <= CHALLENGE.end).length;
   const elapsedPct = (cd.day / L.TOTAL_DAYS) * 100;
@@ -56,7 +58,7 @@ export function renderDashboard(root) {
         <tbody>
           ${rules.map((r) => `
             <tr>
-              <td>${r.name}</td>
+              <td>${L.esc(r.name)}</td>
               <td class="num">${r.current}</td>
               <td class="num">${r.best}</td>
               <td class="num">${pct(r.rate)}</td>
@@ -68,35 +70,13 @@ export function renderDashboard(root) {
     <section class="card">
       <h3 class="section-label">Step ramp</h3>
       <ul class="ramp">
-        ${STEP_RAMP.map((s, i) => {
-          const next = STEP_RAMP[i + 1];
+        ${ramp.map((s, i) => {
+          const next = ramp[i + 1];
           const active = today >= s.from && (!next || today < next.from);
           return `<li class="${active ? 'active' : ''}"><span>${next ? `${shortDate(s.from)} – ${shortDate(L.addDays(next.from, -1))}` : `${shortDate(s.from)} onward`}</span><span>${fmt(s.target)}</span></li>`;
         }).join('')}
       </ul>
       ${PAUSES.map((p) => `<p class="muted small">${p.label}, ${shortDate(p.start)} – ${shortDate(p.end)}: rules optional, streaks paused.</p>`).join('')}
     </section>
-
-    <section class="card">
-      <h3 class="section-label">Backup</h3>
-      <p class="muted small">Data is saved on this device only. To view it on your laptop, export it here, AirDrop the file over, and import it there.</p>
-      <div class="btn-row">
-        <button type="button" class="btn" data-action="export">Export</button>
-        <label class="btn">Import<input type="file" accept="application/json,.json" hidden data-action="import"></label>
-      </div>
-    </section>
   `;
-
-  root.querySelector('[data-action="export"]').addEventListener('click', S.exportJSON);
-  root.querySelector('[data-action="import"]').addEventListener('change', async (ev) => {
-    const file = ev.target.files[0];
-    if (!file) return;
-    if (!confirm('Replace the data on this device with this backup?')) return;
-    try {
-      S.importJSON(await file.text());
-      renderDashboard(root);
-    } catch (err) {
-      alert(err.message);
-    }
-  });
 }
